@@ -10,25 +10,40 @@
   <div id="container">
     <div id="ui">
       <h1>Traffic Simulation</h1>
-      <div class="control">
-        <label for="carCount">Cars</label>
-        <input type="range" id="carCount" min="20" max="400" value="150">
-        <span id="carCountValue">150</span>
+      
+      <div class="section">
+        <h2>Road Network</h2>
+        <div class="control">
+          <label for="presetSelect">Preset</label>
+          <select id="presetSelect"></select>
+        </div>
+        <div class="preset-description" id="presetDescription"></div>
+        <button id="resetPreset" class="button">Reset to Default</button>
       </div>
-      <div class="control">
-        <label for="speedFactor">Speed factor</label>
-        <input type="range" id="speedFactor" min="50" max="150" value="100">
-        <span id="speedFactorValue">1.00x</span>
+
+      <div class="section">
+        <h2>Simulation</h2>
+        <div class="control">
+          <label for="carCount">Cars</label>
+          <input type="range" id="carCount" min="20" max="5000" value="150" step="10">
+          <span id="carCountValue">150</span>
+        </div>
+        <div class="control">
+          <label for="speedFactor">Speed factor</label>
+          <input type="range" id="speedFactor" min="50" max="150" value="100">
+          <span id="speedFactorValue">1.00x</span>
+        </div>
+        <div class="control">
+          <label for="incidentRate">Incident rate</label>
+          <input type="range" id="incidentRate" min="0" max="100" value="20">
+          <span id="incidentRateValue">Low</span>
+        </div>
+        <div class="control checkbox">
+          <label for="debugToggle">Debug overlays</label>
+          <input type="checkbox" id="debugToggle">
+        </div>
       </div>
-      <div class="control">
-        <label for="incidentRate">Incident rate</label>
-        <input type="range" id="incidentRate" min="0" max="100" value="20">
-        <span id="incidentRateValue">Low</span>
-      </div>
-      <div class="control checkbox">
-        <label for="debugToggle">Debug overlays</label>
-        <input type="checkbox" id="debugToggle">
-      </div>
+
       <div class="stats">
         <div>FPS: <span id="fps">0</span></div>
         <div>Cars on road: <span id="carTotal">0</span></div>

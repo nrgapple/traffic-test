@@ -15,7 +15,8 @@ export function carFollowingSystem(world, dt) {
       const baseDesired = Math.max(6, CarAI.desiredSpeed[id]);
       const stopLine = world.stopLines?.get(laneId) ?? null;
       const leaderInfo = pickLeader(id, i, cars, incidents, segmentLength, stopLine);
-      const desiredGap = 8 + Car.speed[id] * 0.9;
+      // In traffic, cars should be much closer together - minimum gap of 2-3 units
+      const desiredGap = Math.max(2, 3 + Car.speed[id] * 0.3);
       const gap = leaderInfo.position - Car.offset[id] - Car.length[id];
 
       let accel = (baseDesired - Car.speed[id]) * 0.6;

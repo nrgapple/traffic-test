@@ -8,16 +8,20 @@ import {
   PARAMS,
   RoadType,
 } from './constants.js';
+import { DEFAULT_ROAD_CONFIG, defaultsForRoadType } from './road-config.js';
+import { getCurveLength } from './geometry.js';
 
-export function setupWorld(world) {
+export function setupWorld(world, config = DEFAULT_ROAD_CONFIG) {
   world.routes = new Map();
-  const nodes = createNodes(world);
-  const segments = createSegments(world, nodes);
-  const lanes = createLanes(world, segments);
+  world.curveControlPoints = new Map();
+  const { nodes, nodeLookup } = createNodes(world, config.nodes);
+  world.nodeIdsByName = nodeLookup;
+  const { segments, segmentConfigs } = createSegments(world, config.roads, nodeLookup);
+  const lanes = createLanes(world, segmentConfigs);
   world.lanes = lanes;
   world.segments = segments;
   world.nodes = nodes;
-  createSignals(world, nodes);
+  createSignals(world, config.signals, nodeLookup);
   spawnCars(world, lanes, PARAMS.carCount);
 }
 
@@ -26,89 +30,99 @@ export function addRandomCars(world, count) {
   spawnCars(world, world.lanes, count);
 }
 
-function createNodes(world) {
-  const coords = [
-    [100, 100, NodeType.JUNCTION],
-    [900, 100, NodeType.JUNCTION],
-    [900, 900, NodeType.JUNCTION],
-    [100, 900, NodeType.JUNCTION],
-    [500, 100, NodeType.JUNCTION],
-    [900, 500, NodeType.JUNCTION],
-    [500, 900, NodeType.JUNCTION],
-    [100, 500, NodeType.JUNCTION],
-    [500, 500, NodeType.SIGNAL],
-  ];
-  return coords.map(([x, y, type]) => {
+function createNodes(world, nodeConfig) {
+  const ids = [];
+  const lookup = new Map();
+  Object.entries(nodeConfig || {}).forEach(([name, def]) => {
     const id = createEntity(world);
     Node.has[id] = 1;
-    Node.x[id] = x;
-    Node.y[id] = y;
-    Node.type[id] = type;
-    return id;
+    Node.x[id] = def.x;
+    Node.y[id] = def.y;
+    Node.type[id] = def.type ?? NodeType.JUNCTION;
+    ids.push(id);
+    lookup.set(name, id);
   });
+  return { nodes: ids, nodeLookup: lookup };
 }
 
-function createSegments(world, nodes) {
-  const pairs = [
-    [nodes[0], nodes[1], RoadType.HIGHWAY, 34],
-    [nodes[1], nodes[2], RoadType.HIGHWAY, 34],
-    [nodes[2], nodes[3], RoadType.HIGHWAY, 34],
-    [nodes[3], nodes[0], RoadType.HIGHWAY, 34],
-    [nodes[4], nodes[5], RoadType.CITY, 22],
-    [nodes[5], nodes[6], RoadType.CITY, 22],
-    [nodes[6], nodes[7], RoadType.CITY, 22],
-    [nodes[7], nodes[4], RoadType.CITY, 22],
-    [nodes[4], nodes[8], RoadType.CITY, 20],
-    [nodes[8], nodes[6], RoadType.CITY, 20],
-    [nodes[7], nodes[8], RoadType.CITY, 20],
-    [nodes[8], nodes[5], RoadType.CITY, 20],
-  ];
-
-  return pairs.map(([start, end, type, speed]) => {
+function createSegments(world, roads, nodeLookup) {
+  const segments = [];
+  const configs = new Map();
+  (roads || []).forEach((road) => {
+    if (!nodeLookup.has(road.from) || !nodeLookup.has(road.to)) return;
     const id = createEntity(world);
+    const start = nodeLookup.get(road.from);
+    const end = nodeLookup.get(road.to);
+    const defaults = defaultsForRoadType(road.type);
+    const roadType = road.type ?? RoadType.CITY;
     RoadSegment.has[id] = 1;
     RoadSegment.startNode[id] = start;
     RoadSegment.endNode[id] = end;
-    RoadSegment.type[id] = type;
-    RoadSegment.speedLimit[id] = speed;
-    RoadSegment.length[id] = segmentLengthFromNodes(start, end);
-    return id;
+    RoadSegment.type[id] = roadType;
+    RoadSegment.speedLimit[id] = road.speed ?? defaults.speed;
+    
+    // Handle curve control points
+    if (road.curve && road.curve.cx !== undefined && road.curve.cy !== undefined) {
+      const sx = Node.x[start];
+      const sy = Node.y[start];
+      const ex = Node.x[end];
+      const ey = Node.y[end];
+      const cx = road.curve.cx;
+      const cy = road.curve.cy;
+      world.curveControlPoints.set(id, [cx, cy]);
+      RoadSegment.length[id] = getCurveLength(sx, sy, cx, cy, ex, ey);
+    } else {
+      RoadSegment.length[id] = segmentLengthFromNodes(start, end);
+    }
+    
+    segments.push(id);
+    configs.set(id, {
+      lanesForward: road.lanesForward ?? defaults.lanesForward,
+      lanesReverse: road.lanesReverse ?? defaults.lanesReverse,
+      laneWidth: road.laneWidth ?? defaults.laneWidth,
+    });
   });
+  return { segments, segmentConfigs: configs };
 }
 
-function createLanes(world, segments) {
+function createLanes(world, segmentConfigs) {
   const lanes = [];
-  segments.forEach((segmentId) => {
-    for (let i = 0; i < 2; i++) {
-      lanes.push(makeLane(world, segmentId, i, LaneDirection.FORWARD));
-      lanes.push(makeLane(world, segmentId, i, LaneDirection.REVERSE));
+  segmentConfigs.forEach((config, segmentId) => {
+    for (let i = 0; i < config.lanesForward; i++) {
+      lanes.push(makeLane(world, segmentId, i, LaneDirection.FORWARD, config.laneWidth));
+    }
+    for (let i = 0; i < config.lanesReverse; i++) {
+      lanes.push(makeLane(world, segmentId, i, LaneDirection.REVERSE, config.laneWidth));
     }
   });
   return lanes;
 }
 
-function makeLane(world, segmentId, index, direction) {
+function makeLane(world, segmentId, index, direction, width) {
   const laneId = createEntity(world);
   Lane.has[laneId] = 1;
   Lane.segment[laneId] = segmentId;
   Lane.index[laneId] = index + 1;
-  Lane.width[laneId] = 10;
+  Lane.width[laneId] = width;
   Lane.direction[laneId] = direction;
   registerRoute(world, laneId);
   return laneId;
 }
 
-function createSignals(world, nodes) {
-  const signalNode = nodes[8];
-  const id = createEntity(world);
-  TrafficLight.has[id] = 1;
-  TrafficLight.node[id] = signalNode;
-  TrafficLight.cycleTime[id] = 12;
-  TrafficLight.greenTime[id] = 7;
-  TrafficLight.phaseOffset[id] = 0;
-  TrafficLight.timer[id] = 0;
-  TrafficLight.state[id] = 1;
-  return id;
+function createSignals(world, signalConfig, nodeLookup) {
+  (signalConfig || []).forEach((signal) => {
+    const node = nodeLookup.get(signal.at);
+    if (!node) return;
+    Node.type[node] = NodeType.SIGNAL;
+    const id = createEntity(world);
+    TrafficLight.has[id] = 1;
+    TrafficLight.node[id] = node;
+    TrafficLight.cycleTime[id] = signal.cycle ?? 12;
+    TrafficLight.greenTime[id] = signal.green ?? 7;
+    TrafficLight.phaseOffset[id] = signal.offset ?? 0;
+    TrafficLight.timer[id] = TrafficLight.cycleTime[id] * (signal.offset ?? 0);
+    TrafficLight.state[id] = 1;
+  });
 }
 
 function spawnCars(world, lanes, count) {
