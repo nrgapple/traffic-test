@@ -1,0 +1,9 @@
+{
+  "name": "vector-traffic-sim",
+  "version": "1.0.0",
+  "description": "Vanilla JS traffic simulation with preview server.",
+  "private": true,
+  "scripts": {
+    "start": "node preview.js"
+  }
+}

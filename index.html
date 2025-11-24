@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vector Traffic Simulation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="container">
+    <div id="ui">
+      <h1>Traffic Simulation</h1>
+      <div class="control">
+        <label for="carCount">Cars</label>
+        <input type="range" id="carCount" min="20" max="400" value="150">
+        <span id="carCountValue">150</span>
+      </div>
+      <div class="control">
+        <label for="speedFactor">Speed factor</label>
+        <input type="range" id="speedFactor" min="50" max="150" value="100">
+        <span id="speedFactorValue">1.00x</span>
+      </div>
+      <div class="control">
+        <label for="incidentRate">Incident rate</label>
+        <input type="range" id="incidentRate" min="0" max="100" value="20">
+        <span id="incidentRateValue">Low</span>
+      </div>
+      <div class="control checkbox">
+        <label for="debugToggle">Debug overlays</label>
+        <input type="checkbox" id="debugToggle">
+      </div>
+      <div class="stats">
+        <div>FPS: <span id="fps">0</span></div>
+        <div>Cars on road: <span id="carTotal">0</span></div>
+        <div>Active incidents: <span id="incidentTotal">0</span></div>
+      </div>
+    </div>
+    <div id="canvas-container">
+      <canvas id="canvas"></canvas>
+    </div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
